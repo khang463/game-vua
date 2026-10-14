@@ -1,119 +1,112 @@
-from pathlib import Path
-
-html = r'''<!DOCTYPE html>
-<html lang="vi">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vua Tiếng Việt</title>
-<style>
-:root{--bg:#f4f6fb;--card:#fff;--ink:#20243a;--muted:#697086;--purple:#7847c7;--red:#d83b52;--green:#168653;--line:#e2e6ef}
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#f3f5ff,#fff5f5);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);min-height:100vh;padding:20px}
-main{max-width:760px;margin:0 auto}.top{text-align:center;margin:10px 0 22px}.crown{font-size:42px}.top h1{margin:4px 0;font-size:clamp(28px,5vw,40px)}.top p{color:var(--muted);margin:6px 0}
-.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:clamp(16px,4vw,28px);box-shadow:0 12px 35px #252c5010}
-.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
-.mode{border:2px solid transparent;border-radius:14px;padding:14px 8px;cursor:pointer;background:#f0f1f7;color:var(--ink);font-weight:800;font-size:16px}
-.mode small{display:block;font-weight:500;font-size:12px;margin-top:5px}.mode.active[data-mode="easy"]{background:#d9f8e6;border-color:#168653}.mode.active[data-mode="hard"]{background:#eee2ff;border-color:#7847c7}.mode.active[data-mode="picture"]{background:#ffe2e7;border-color:#d83b52}
-.status{display:flex;justify-content:space-between;gap:10px;align-items:center;color:var(--muted);font-size:14px;margin:12px 0}.pill{font-weight:800;letter-spacing:.04em;font-size:12px;padding:7px 10px;border-radius:999px;background:#eee2ff;color:#6131a8}.progress{height:7px;background:#edf0f6;border-radius:10px;overflow:hidden;margin-bottom:22px}.bar{height:100%;width:10%;background:var(--purple);transition:width .2s}
-.question{font-size:clamp(19px,3vw,24px);line-height:1.45;margin:0 0 18px}.hintbox{background:#fff5dc;border-radius:16px;padding:20px;text-align:center;margin-bottom:18px}.hintbox .emoji{font-size:clamp(28px,6vw,42px);line-height:1.5}.hintbox p{margin:8px 0 0;color:#82550c;font-size:13px}
-.options{display:grid;gap:10px}.option{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:13px;border:1px solid var(--line);border-radius:13px;background:#f9faff;color:var(--ink);font-size:16px;cursor:pointer}.letter{flex:0 0 34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#fff;border:1px solid var(--line);font-weight:800}.option:hover:not(:disabled){border-color:#9c7ade;background:#f6f0ff}.option.selected{border:2px solid #4e82e8;background:#eaf1ff}.option.correct{border-color:#168653;background:#d9f8e6}.option.wrong{border-color:#d83b52;background:#ffe2e7}.option:disabled{cursor:default}
-.feedback{margin-top:15px;padding:13px 15px;background:#f1f3f8;border-radius:12px;line-height:1.5}.feedback.good{background:#e5f8ec;color:#116c42}.feedback.bad{background:#fff0f1;color:#a52539}
-.actions{display:flex;gap:10px;margin-top:18px}.btn{border:0;border-radius:12px;padding:13px 18px;background:var(--purple);color:#fff;font-size:16px;font-weight:800;cursor:pointer;flex:1}.btn:disabled{opacity:.45;cursor:not-allowed}.btn.secondary{background:#edf0f7;color:#30364d}.result{text-align:center;padding:15px 4px}.result .trophy{font-size:54px}.result h2{font-size:28px;margin:8px 0}.result p{color:var(--muted);line-height:1.5}
-footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 0 4px}
-@media(max-width:480px){body{padding:12px}.modes{gap:6px}.mode{font-size:14px;padding:12px 4px}.mode small{font-size:10px}.card{border-radius:18px}.actions{flex-direction:column}}
-</style>
-</head>
-<body>
-<main>
-  <header class="top">
-    <div class="crown">👑</div>
-    <h1>Vua Tiếng Việt</h1>
-    <p>Chọn chế độ • Trả lời từng câu • 10 câu mỗi lượt</p>
-  </header>
-  <section class="card">
-    <div class="modes" aria-label="Chọn chế độ">
-      <button class="mode active" data-mode="easy">🌱 DỄ<small>10 câu</small></button>
-      <button class="mode" data-mode="hard">🔥 KHÓ<small>10 câu</small></button>
-      <button class="mode" data-mode="picture">🧩 SIÊU KHÓ<small>Đuổi hình bắt chữ</small></button>
-    </div>
-    <div id="game">
-      <div class="status"><span class="pill" id="levelPill">CHẾ ĐỘ DỄ</span><span id="count">Câu 1/10 · Điểm 0</span></div>
-      <div class="progress"><div class="bar" id="bar"></div></div>
-      <div id="prompt"></div>
-      <div class="options" id="options"></div>
-      <div id="feedback" aria-live="polite"></div>
-      <div class="actions"><button id="submit" class="btn" disabled>Chốt đáp án</button><button id="next" class="btn" hidden>Câu tiếp theo →</button></div>
-    </div>
-    <div id="result" class="result" hidden></div>
-  </section>
-  <footer>Chơi được trên điện thoại và máy tính • Có thể đăng trực tiếp bằng GitHub Pages</footer>
-</main>
-<script>
-const questions = {
- easy: [
-  {q:"Từ nào viết đúng chính tả?",a:["Bàng quang (chỉ thái độ thờ ơ)","Bàng quan (chỉ thái độ thờ ơ)","Bàn quan","Bàng quoan"],c:1,e:"“Bàng quan” nghĩa là đứng ngoài, thờ ơ; “bàng quang” là cơ quan chứa nước tiểu."},
-  {q:"“Hữu danh vô thực” nghĩa là gì?",a:["Có danh tiếng nhưng thiếu thực chất","Có tài mà không nổi tiếng","Không có tên tuổi","Có danh và có thực lực"],c:0,e:"Có tiếng tăm nhưng không có giá trị thực tế tương xứng."},
-  {q:"Từ nào gần nghĩa với “hàm súc”?",a:["Dài dòng","Ngắn gọn mà giàu ý nghĩa","Mơ hồ","Khó đọc"],c:1,e:"Hàm súc là ít lời nhưng chứa nhiều ý."},
-  {q:"“Múa rìu qua mắt thợ” nói về việc gì?",a:["Học hỏi người giỏi","Khoe tài trước người giỏi hơn mình","Giấu nghề","Làm việc khéo léo"],c:1,e:"Thành ngữ nói về việc thể hiện trước người có chuyên môn cao hơn."},
-  {q:"Từ nào gần nghĩa với “uyên bác”?",a:["Nông nổi","Hiểu biết sâu rộng","Bảo thủ","Lập dị"],c:1,e:"Uyên bác chỉ người có kiến thức sâu rộng."},
-  {q:"“Râu ông nọ cắm cằm bà kia” chỉ điều gì?",a:["Chắp vá, nhầm lẫn không phù hợp","Nói năng lưu loát","Làm việc cẩn thận","Giữ lời hứa"],c:0,e:"Chỉ sự nhầm lẫn, ghép những thứ không ăn khớp."},
-  {q:"Từ nào trái nghĩa với “khoan dung”?",a:["Nhân hậu","Độ lượng","Hẹp hòi","Bao dung"],c:2,e:"Khoan dung đối lập với hẹp hòi."},
-  {q:"“Khẩu Phật tâm xà” chỉ người nào?",a:["Ngoài hiền lành, trong độc ác","Thẳng thắn, trung thực","Nói ít làm nhiều","Hay giúp đỡ người khác"],c:0,e:"Miệng nói lời nhân từ nhưng lòng dạ hiểm độc."},
-  {q:"Từ nào viết đúng chính tả?",a:["Sát nhập","Sáp nhập","Sát nhặp","Sáp nhặp"],c:1,e:"Cách viết chuẩn là “sáp nhập”."},
-  {q:"“Vẽ rắn thêm chân” phê phán điều gì?",a:["Thiếu sáng tạo","Thêm thắt thừa thãi làm hỏng việc","Làm việc chậm","Không biết lập kế hoạch"],c:1,e:"Chỉ việc thêm những thứ không cần thiết khiến sự việc trở nên rắc rối."}
- ],
- hard: [
-  {q:"Từ nào gần nghĩa nhất với “phản trắc”?",a:["Chính trực","Bội bạc, dễ phản bội","Khoan dung","Kiên nhẫn"],c:1,e:"Phản trắc là không trung thành, có thể trở mặt hoặc phản bội."},
-  {q:"“Đầu Ngô mình Sở” nói về điều gì?",a:["Đầu đuôi không ăn khớp","Rất đoàn kết","Có tài nhiều mặt","Nói ít hiểu nhiều"],c:0,e:"Chỉ sự không thống nhất, nói hoặc làm mỗi nơi một kiểu."},
-  {q:"Từ nào gần nghĩa với “minh triết”?",a:["Nông nổi","Sáng suốt, trí tuệ sâu sắc","Kiêu căng","Mơ hồ"],c:1,e:"Minh triết nhấn mạnh sự sáng suốt và hiểu biết sâu sắc."},
-  {q:"“Đục nước béo cò” ám chỉ điều gì?",a:["Lợi dụng lúc rối ren để trục lợi","Giúp người lúc khó khăn","Làm việc chăm chỉ","Tránh xa tranh chấp"],c:0,e:"Chỉ người lợi dụng tình hình hỗn loạn để thu lợi cho mình."},
-  {q:"Từ nào gần nghĩa với “xảo quyệt”?",a:["Chân thành","Gian ngoan, nhiều mưu mẹo","Ngây thơ","Thẳng thắn"],c:1,e:"Xảo quyệt là ranh mãnh, thường dùng mưu mẹo không tốt."},
-  {q:"“Thâm căn cố đế” nghĩa là gì?",a:["Mới xuất hiện","Ăn sâu, bám rễ lâu đời, khó thay đổi","Dễ dàng biến mất","Không có căn cứ"],c:1,e:"Chỉ điều tồn tại lâu dài, ăn sâu và khó loại bỏ."},
-  {q:"Từ nào gần nghĩa nhất với “khắc khoải”?",a:["Thanh thản","Day dứt, mong ngóng không yên","Hân hoan","Thờ ơ"],c:1,e:"Khắc khoải diễn tả nỗi mong chờ hoặc day dứt kéo dài."},
-  {q:"“Cầm kỳ thi họa” nói đến điều gì?",a:["Bốn môn nghệ thuật, tài hoa cổ điển","Bốn mùa trong năm","Bốn nghề thủ công","Bốn phẩm chất của người lính"],c:0,e:"Cầm là đàn, kỳ là cờ, thi là thơ, họa là vẽ."},
-  {q:"Từ nào gần nghĩa với “tinh vi” khi nói về thủ đoạn?",a:["Đơn giản, dễ nhận ra","Khéo léo, kín đáo và khó nhận biết","Công khai, rõ ràng","Vụng về"],c:1,e:"Trong ngữ cảnh thủ đoạn, “tinh vi” chỉ cách làm phức tạp, khó phát hiện."},
-  {q:"“Bất khả tri” gần nghĩa với cách hiểu nào?",a:["Không thể biết hoặc nhận thức được","Chắc chắn đúng","Dễ hiểu ngay","Có thể đo đếm chính xác"],c:0,e:"“Bất khả tri” chỉ điều không thể biết hoặc không thể nhận thức được trong ngữ cảnh đang nói."}
- ],
- picture: [
-  {q:"🐘 (đầu) + 🐭 (đuôi)",a:["Đầu voi đuôi chuột","Chuột sa chĩnh gạo","Voi đòi tiên","Đầu xuôi đuôi lọt"],c:0,e:"Đầu voi đuôi chuột: mở đầu lớn lao nhưng kết thúc nhỏ bé, không tương xứng."},
-  {q:"🥚 + 🪨 ⚔️",a:["Trứng khôn hơn vịt","Trứng chọi đá","Đá ném ao bèo","Một mất một còn"],c:1,e:"Trứng chọi đá: lấy cái yếu chống lại cái mạnh, khó có kết quả."},
-  {q:"🍯 + 🪰 💀",a:["Mật ngọt chết ruồi","Ăn mật trả gừng","Ngọt như mía lùi","Ruồi bu đĩa mật"],c:0,e:"Mật ngọt chết ruồi: lời ngon ngọt có thể là cám dỗ hoặc cái bẫy."},
-  {q:"🐸 + 🕳️ + 👀⬆️",a:["Ếch ngồi đáy giếng","Ếch chết tại miệng","Cóc gọi trời mưa","Thùng rỗng kêu to"],c:0,e:"Ếch ngồi đáy giếng: hiểu biết hạn hẹp nhưng tưởng mình biết hết."},
-  {q:"💧 ➡️ 🍃",a:["Nước chảy đá mòn","Nước đổ lá khoai","Nước đến chân mới nhảy","Nước mắt cá sấu"],c:1,e:"Nước đổ lá khoai: lời khuyên không thấm vào người nghe."},
-  {q:"🐢 + 🏁",a:["Nhanh như thỏ","Rùa và thỏ","Chậm mà chắc","Thua keo này bày keo khác"],c:2,e:"Chậm mà chắc: làm từ tốn, cẩn thận để đạt kết quả vững vàng."},
-  {q:"👄 + 🍯 + 🪰",a:["Miệng nam mô bụng bồ dao găm","Lời nói chẳng mất tiền mua","Mật ngọt chết ruồi","Ăn nói có duyên"],c:2,e:"Mật ngọt chết ruồi: lời ngọt ngào có thể hấp dẫn nhưng nguy hiểm."},
-  {q:"🐦 + 🌸 + 🌞",a:["Chim sa cá lặn","Một cánh én không làm nên mùa xuân","Chim khôn kêu tiếng rảnh rang","Đất lành chim đậu"],c:1,e:"Một cánh én không làm nên mùa xuân: một cá nhân khó làm nên việc lớn một mình."},
-  {q:"🪨 + 💧 + ⏳",a:["Đá ném ao bèo","Nước chảy đá mòn","Có công mài sắt có ngày nên kim","Ăn chắc mặc bền"],c:1,e:"Nước chảy đá mòn: kiên trì lâu dài sẽ tạo ra kết quả."},
-  {q:"🐌 + 🏠 + 🚶",a:["Ăn ốc nói mò","Chậm như sên","Ốc mượn hồn","Rùa bò"],c:1,e:"Chậm như sên: chỉ người hoặc việc diễn ra rất chậm."}
- ]
-};
-const labels={easy:"DỄ",hard:"KHÓ",picture:"SIÊU KHÓ · ĐUỔI HÌNH"};
-let mode="easy", index=0, choice=-1, checked=false, score=0;
-const $=id=>document.getElementById(id);
-const modeButtons=[...document.querySelectorAll(".mode")];
-modeButtons.forEach(b=>b.addEventListener("click",()=>{mode=b.dataset.mode;modeButtons.forEach(x=>x.classList.toggle("active",x===b));resetGame();render()}));
-function resetGame(){index=0;choice=-1;checked=false;score=0;$("result").hidden=true;$("game").hidden=false}
-function render(){
- const list=questions[mode];$("levelPill").textContent=labels[mode];$("count").textContent=`Câu ${Math.min(index+1,10)}/10 · Điểm ${score}`;$("bar").style.width=`${(index+1)*10}%`;
- $("feedback").innerHTML="";$("feedback").className="";$("submit").hidden=false;$("next").hidden=true;
- if(index>=list.length){showResult();return}
- const q=list[index];
- if(mode==="picture"){$("prompt").innerHTML=`<div class="hintbox"><div class="emoji">${q.q}</div><p>Nhìn hình gợi ý và đoán thành ngữ hoặc cụm từ tiếng Việt.</p></div>`}
- else {$("prompt").innerHTML=`<h2 class="question">${q.q}</h2>`}
- $("options").innerHTML="";
- q.a.forEach((answer,i)=>{const b=document.createElement("button");b.className="option"+(choice===i?" selected":"");b.innerHTML=`<span class="letter">${"ABCD"[i]}</span><span>${answer}</span>`;b.addEventListener("click",()=>{if(checked)return;choice=i;renderOptions()});$("options").appendChild(b)});
- $("submit").disabled=choice<0;$("submit").textContent="Chốt đáp án";$("next").textContent=index===9?"Xem kết quả →":"Câu tiếp theo →";
-}
-function renderOptions(){
- const list=questions[mode],q=list[index];[...$("options").children].forEach((b,i)=>{b.className="option"+(choice===i?" selected":"");});$("submit").disabled=choice<0;
-}
-$("submit").addEventListener("click",()=>{if(choice<0||checked)return;checked=true;const q=questions[mode][index];if(choice===q.c)score++;[...$("options").children].forEach((b,i)=>{b.disabled=true;b.className="option"+(i===q.c?" correct":i===choice&&choice!==q.c?" wrong":"")});$("feedback").className="feedback "+(choice===q.c?"good":"bad");$("feedback").innerHTML=`<strong>${choice===q.c?"Chính xác!":"Chưa đúng rồi!"}</strong><br>${q.e}`;$("submit").hidden=true;$("next").hidden=false;$("count").textContent=`Câu ${index+1}/10 · Điểm ${score}`});
-$("next").addEventListener("click",()=>{index++;choice=-1;checked=false;if(index>=10)showResult();else render()});
-function showResult(){$("game").hidden=true;$("result").hidden=false;$("result").innerHTML=`<div class="trophy">🏆</div><h2>Bạn đạt ${score}/10 điểm!</h2><p>${score===10?"Xuất sắc! Bạn đã chinh phục trọn vẹn cấp độ này.":score>=7?"Rất tốt! Thử lại để đạt điểm tuyệt đối nhé.":"Cố lên! Hãy chơi lại để phá kỷ lục của mình."}</p><div class="actions"><button class="btn" id="replay">Chơi lại</button><button class="btn secondary" id="change">Đổi chế độ</button></div>`;$("replay").addEventListener("click",()=>{resetGame();render()});$("change").addEventListener("click",()=>{mode=mode==="easy"?"hard":mode==="hard"?"picture":"easy";modeButtons.forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));resetGame();render()})}
-render();
-</script>
-</body>
-</html>'''
-path = Path("/mnt/data/index.html")
-path.write_text(html, encoding="utf-8")
-print(f"Created {path} ({path.stat().st_size} bytes)")
+picture: [
+  {
+    q: "Câu 1: Thành ngữ nào chỉ việc khởi đầu hoành tráng nhưng kết thúc không tương xứng?",
+    a: [
+      "Đầu voi đuôi chuột",
+      "Đầu xuôi đuôi lọt",
+      "Trống đánh xuôi, kèn thổi ngược",
+      "Râu ông nọ cắm cằm bà kia"
+    ],
+    c: 0,
+    e: "Đầu voi đuôi chuột: mở đầu có vẻ lớn lao nhưng kết quả cuối cùng lại nhỏ bé, không tương xứng."
+  },
+  {
+    q: "Câu 2: Thành ngữ nào chỉ kẻ lợi dụng tình thế hỗn loạn để kiếm lợi?",
+    a: [
+      "Nước đổ lá khoai",
+      "Đục nước béo cò",
+      "Nước chảy chỗ trũng",
+      "Chim sa cá lặn"
+    ],
+    c: 1,
+    e: "Đục nước béo cò: lợi dụng tình trạng rối ren để thu lợi cho bản thân."
+  },
+  {
+    q: "Câu 3: Cụm từ nào chỉ lời ngon ngọt được dùng để dụ dỗ người khác vào bẫy?",
+    a: [
+      "Khẩu Phật tâm xà",
+      "Mật ngọt chết ruồi",
+      "Ăn mật trả gừng",
+      "Miệng nam mô, bụng bồ dao găm"
+    ],
+    c: 1,
+    e: "Mật ngọt chết ruồi: lời ngon ngọt có thể khiến người khác mắc bẫy."
+  },
+  {
+    q: "Câu 4: Thành ngữ nào chỉ người ngồi chờ may mắn đến mà không chịu chủ động?",
+    a: [
+      "Thả mồi bắt bóng",
+      "Ôm cây đợi thỏ",
+      "Đứng núi này trông núi nọ",
+      "Cưỡi ngựa xem hoa"
+    ],
+    c: 1,
+    e: "Ôm cây đợi thỏ: mong chờ vận may một cách thụ động, không chịu nỗ lực."
+  },
+  {
+    q: "Câu 5: Câu nào chỉ sự khuyên bảo hoặc tác động không đem lại kết quả?",
+    a: [
+      "Nước chảy đá mòn",
+      "Nước đổ lá khoai",
+      "Lửa thử vàng, gian nan thử sức",
+      "Có công mài sắt, có ngày nên kim"
+    ],
+    c: 1,
+    e: "Nước đổ lá khoai: lời nói hoặc tác động không để lại ảnh hưởng, không có kết quả."
+  },
+  {
+    q: "Câu 6: Thành ngữ nào phê phán người đạt mục đích rồi quay lưng với người từng giúp mình?",
+    a: [
+      "Qua cầu rút ván",
+      "Ăn cháo đá bát",
+      "Vắt chanh bỏ vỏ",
+      "Cả A, B và C"
+    ],
+    c: 3,
+    e: "Cả ba thành ngữ đều phê phán sự bạc bẽo, vô ơn sau khi đã nhận được lợi ích."
+  },
+  {
+    q: "Câu 7: Thành ngữ nào chỉ người hiểu biết hạn hẹp nhưng lại tưởng mình hiểu biết rộng?",
+    a: [
+      "Ếch ngồi đáy giếng",
+      "Thầy bói xem voi",
+      "Coi trời bằng vung",
+      "Cả A và C"
+    ],
+    c: 0,
+    e: "Ếch ngồi đáy giếng: chỉ người có tầm nhìn hạn hẹp, thiếu hiểu biết về thế giới bên ngoài."
+  },
+  {
+    q: "Câu 8: Cụm từ Hán Việt nào chỉ quan niệm hoặc thói quen đã ăn sâu lâu đời, khó thay đổi?",
+    a: [
+      "Bất khả tri",
+      "Thâm căn cố đế",
+      "Hữu danh vô thực",
+      "Cầm kỳ thi họa"
+    ],
+    c: 1,
+    e: "Thâm căn cố đế: chỉ điều đã ăn sâu, bám rễ lâu đời nên khó thay đổi hoặc loại bỏ."
+  },
+  {
+    q: "Câu 9: Những câu nào khuyên con người kiên trì và tích lũy từng chút để đạt thành quả?",
+    a: [
+      "Kiến tha lâu cũng đầy tổ",
+      "Năng nhặt chặt bị",
+      "Có công mài sắt, có ngày nên kim",
+      "Cả A, B và C"
+    ],
+    c: 3,
+    e: "Cả ba câu đều đề cao sự kiên trì, tích lũy hoặc nỗ lực lâu dài để đạt kết quả."
+  },
+  {
+    q: "Câu 10: Thành ngữ nào chỉ những kẻ hung ác, ngang ngược?",
+    a: [
+      "Ngựa quen đường cũ",
+      "Cưỡi ngựa xem hoa",
+      "Đầu trâu mặt ngựa",
+      "Một con ngựa đau, cả tàu bỏ cỏ"
+    ],
+    c: 2,
+    e: "Đầu trâu mặt ngựa: chỉ những kẻ hung ác, ngang ngược; thường dùng để nói về bọn tay sai hoặc người có hành vi tàn bạo."
+  }
+],
